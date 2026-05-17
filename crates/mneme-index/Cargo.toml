@@ -1,0 +1,17 @@
+[package]
+name = "mneme-index"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mneme-core.workspace = true
+tokio.workspace = true
+serde.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+hnsw_rs.workspace = true
+tantivy.workspace = true
+simsimd.workspace = true

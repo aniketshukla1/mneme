@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mneme-core",
+    "crates/mneme-store",
+    "crates/mneme-index",
+    "crates/mneme-evolve",
+    "crates/mneme-procedural",
+    "crates/mneme-server",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/YOURNAME/mneme"
+rust-version = "1.79"
+
+[workspace.dependencies]
+# --- internal crates ---
+mneme-core = { path = "crates/mneme-core" }
+mneme-store = { path = "crates/mneme-store" }
+mneme-index = { path = "crates/mneme-index" }
+mneme-evolve = { path = "crates/mneme-evolve" }
+mneme-procedural = { path = "crates/mneme-procedural" }
+
+# --- foundation (see architecture report, "Rust Crate Survey") ---
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "1"
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ulid = { version = "1", features = ["serde"] }
+time = { version = "0.3", features = ["serde", "macros"] }
+async-trait = "0.1"
+
+# --- storage / index (wrapped, per build plan Phase 0) ---
+fjall = "2"
+tantivy = "0.22"
+hnsw_rs = "0.3"
+simsimd = "6"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

@@ -1,0 +1,5 @@
+/target
+/mneme-data
+**/*.rs.bk
+Cargo.lock
+.DS_Store

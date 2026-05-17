@@ -1,0 +1,21 @@
+[package]
+name = "mneme-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "mneme"
+path = "src/main.rs"
+
+[dependencies]
+mneme-core.workspace = true
+mneme-store.workspace = true
+mneme-index.workspace = true
+mneme-evolve.workspace = true
+mneme-procedural.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
