@@ -48,7 +48,7 @@ impl EventLog for FjallEventLog {
 
     async fn read_from(&self, after: Option<Id>) -> Result<Vec<LogEntry>, MnemeError> {
         let mut out = Vec::new();
-        let iter = match after {
+        let bounds = match after {
             Some(id) => {
                 let mut start = id.to_bytes();
                 // exclusive lower bound: smallest key strictly greater
@@ -60,11 +60,11 @@ impl EventLog for FjallEventLog {
                         break;
                     }
                 }
-                self.events.range(start..)
+                (std::ops::Bound::Included(start), std::ops::Bound::Unbounded)
             }
-            None => self.events.range::<[u8; 16], _>(..),
+            None => (std::ops::Bound::Unbounded, std::ops::Bound::Unbounded),
         };
-        for kv in iter {
+        for kv in self.events.range(bounds) {
             let (_, v) = kv.map_err(|e| MnemeError::Storage(e.to_string()))?;
             let entry: LogEntry =
                 bincode::deserialize(&v).map_err(|e| MnemeError::Storage(e.to_string()))?;
