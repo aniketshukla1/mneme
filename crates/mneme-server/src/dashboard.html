@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>mneme — benchmarks</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-2: #1c2128;
+      --border: #30363d;
+      --border-soft: #21262d;
+      --text: #c9d1d9;
+      --text-dim: #8b949e;
+      --text-faint: #6e7681;
+      --accent: #58a6ff;
+      --green: #56d364;
+      --orange: #f0883e;
+      --red: #f85149;
+      --blue: #79c0ff;
+      --purple: #d2a8ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: var(--bg); color: var(--text);
+      font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+    header {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      display: flex; align-items: baseline; gap: 24px; flex-wrap: wrap;
+    }
+    h1 { font-size: 14px; margin: 0; font-weight: 600; letter-spacing: 0.2px; }
+    h1 .accent { color: var(--accent); }
+    .nav a {
+      color: var(--text-dim); font-size: 12px; text-decoration: none;
+      padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-soft);
+    }
+    .nav a:hover { color: var(--text); border-color: var(--accent); }
+    .heart { color: var(--text-faint); margin-left: auto; font-size: 11px; }
+    .heart strong { color: var(--text-dim); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    main { padding: 20px 24px; max-width: 1280px; margin: 0 auto; }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .kpi {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+    .kpi .label {
+      font-size: 10px; color: var(--text-faint);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .kpi .value {
+      font-size: 22px; color: var(--text);
+      font-weight: 600; font-variant-numeric: tabular-nums;
+    }
+    .kpi .value .unit { font-size: 11px; color: var(--text-faint); font-weight: 400; margin-left: 3px; }
+    .kpi .sub { font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+    .section h2 {
+      font-size: 11px; margin: 0 0 12px;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-faint); font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section h2 .col-tag {
+      padding: 1px 6px; border-radius: 3px; background: rgba(255,255,255,0.04);
+      color: var(--accent); font-size: 10px; letter-spacing: 0.5px;
+    }
+    .section h2 .hint { color: var(--text-faint); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 10px; }
+
+    .chart-wrap { height: 220px; position: relative; }
+
+    .grid-2 {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+    }
+    @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td {
+      padding: 6px 8px; border-bottom: 1px solid var(--border-soft);
+      text-align: left; vertical-align: top;
+    }
+    th { color: var(--text-faint); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    td.q { color: var(--text); font-family: inherit; }
+    td.t { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+    .tier-pill {
+      display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 10px;
+      background: rgba(255,255,255,0.04); font-weight: 600;
+    }
+    .tier-pill.strict_and { color: var(--green); }
+    .tier-pill.fuzzy_and  { color: var(--orange); }
+    .tier-pill.or_merge   { color: var(--purple); }
+    .tier-pill.empty      { color: var(--red); }
+    .empty-msg { padding: 20px 8px; color: var(--text-faint); font-size: 11px; text-align: center; }
+
+    .phase2-placeholder {
+      background: repeating-linear-gradient(
+        45deg, transparent 0 8px, rgba(255,255,255,0.015) 8px 16px);
+      border: 1px dashed var(--border);
+      border-radius: 6px; padding: 30px;
+      text-align: center; color: var(--text-faint); font-size: 11px;
+      line-height: 1.7;
+    }
+    .phase2-placeholder strong { color: var(--text-dim); }
+
+    /* Phase 1 evolution-section styling */
+    .pill {
+      display: inline-block; padding: 1px 7px; border-radius: 10px;
+      font-size: 10px; letter-spacing: 0.5px; font-weight: 600;
+    }
+    .pill.on   { background: rgba(86,211,100,0.15); color: var(--green); }
+    .pill.off  { background: rgba(248,81,73,0.15);  color: var(--red); }
+    .pill.demo { background: rgba(210,168,255,0.15); color: var(--purple); }
+    .pill.ollama { background: rgba(121,192,255,0.15); color: var(--blue); }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .chip {
+      font-size: 10px; padding: 1px 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.04); color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+    }
+    .chip.tag    { color: var(--orange); }
+    .chip.kw     { color: var(--blue); }
+    .id-mono {
+      font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--text-faint); font-size: 10px;
+    }
+    .arrow { color: var(--text-faint); margin: 0 4px; }
+    .chain-event {
+      padding: 8px 10px; border-bottom: 1px solid var(--border-soft);
+    }
+    .chain-event:last-child { border-bottom: 0; }
+    .chain-event-meta {
+      display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+      font-size: 10px; color: var(--text-faint);
+    }
+    .empty-msg-soft {
+      padding: 14px 8px; color: var(--text-faint); font-size: 11px;
+      text-align: center; font-style: italic;
+    }
+    .depth-bar-row {
+      display: grid; grid-template-columns: 110px 1fr 36px; gap: 8px;
+      align-items: center; margin: 4px 0; font-size: 10px;
+    }
+    .depth-bar-row .id { color: var(--text-dim); }
+    .depth-bar-row .count {
+      text-align: right; font-variant-numeric: tabular-nums; color: var(--text);
+    }
+    .depth-bar {
+      height: 8px; background: var(--border-soft); border-radius: 3px; overflow: hidden;
+    }
+    .depth-bar > div {
+      height: 100%; background: linear-gradient(90deg, var(--accent), var(--purple));
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span class="accent">mneme</span> — benchmarks</h1>
+    <span class="nav"><a href="/">← live view</a></span>
+    <span class="heart">uptime <strong id="uptime">—</strong> · server start <strong id="server-start">—</strong></span>
+  </header>
+  <main>
+    <!-- KPI strip -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="label">queries served</div>
+        <div class="value"><span id="kpi-queries">—</span></div>
+        <div class="sub">lifetime since server start</div>
+      </div>
+      <div class="kpi">
+        <div class="label">p50 latency</div>
+        <div class="value"><span id="kpi-p50">—</span><span class="unit">ms</span></div>
+        <div class="sub" id="kpi-p50-sub">median over lifetime</div>
+      </div>
+      <div class="kpi">
+        <div class="label">p95 latency</div>
+        <div class="value"><span id="kpi-p95">—</span><span class="unit">ms</span></div>
+        <div class="sub" id="kpi-p95-sub">tail latency</div>
+      </div>
+      <div class="kpi">
+        <div class="label">mean latency</div>
+        <div class="value"><span id="kpi-mean">—</span><span class="unit">ms</span></div>
+        <div class="sub">arithmetic mean</div>
+      </div>
+      <div class="kpi">
+        <div class="label">source-boost flips</div>
+        <div class="value"><span id="kpi-boost">—</span><span class="unit">%</span></div>
+        <div class="sub">queries where chunk beat standalone</div>
+      </div>
+    </div>
+
+    <!-- Latency time series -->
+    <div class="section">
+      <h2>
+        <span class="col-tag">LATENCY</span>
+        over time
+        <span class="hint">mean + p95, per minute</span>
+      </h2>
+      <div class="chart-wrap"><canvas id="latency-chart"></canvas></div>
+    </div>
+
+    <!-- Tier distribution + Hit count -->
+    <div class="grid-2">
+      <div class="section">
+        <h2>
+          <span class="col-tag">BM25 TIER</span>
+          fallback distribution
+          <span class="hint">per minute</span>
+        </h2>
+        <div class="chart-wrap"><canvas id="tier-chart"></canvas></div>
+      </div>
+      <div class="section">
+        <h2>
+          <span class="col-tag">RECALL</span>
+          mean hits per signal
+          <span class="hint">per minute</span>
+        </h2>
+        <div class="chart-wrap"><canvas id="hits-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Recent queries -->
+    <div class="section">
+      <h2>
+        <span class="col-tag">RECENT</span>
+        last queries
+        <span class="hint">newest first</span>
+      </h2>
+      <div id="recent-table"><div class="empty-msg">no queries yet — try some in the live view</div></div>
+    </div>
+
+    <!-- Phase 1 — memory evolution -->
+    <div class="section">
+      <h2>
+        <span class="col-tag">PHASE 1</span>
+        memory evolution
+        <span class="hint">A-MEM three-step pipeline (note → links → bounded evolution)</span>
+        <span id="evolve-state-pill" class="pill off">offline</span>
+        <span id="evolve-backend-pill" class="pill demo">backend —</span>
+      </h2>
+      <div class="kpi-row" style="margin-bottom: 14px;">
+        <div class="kpi">
+          <div class="label">notes enriched</div>
+          <div class="value"><span id="evolve-notes">—</span></div>
+          <div class="sub">step 1 of A-MEM</div>
+        </div>
+        <div class="kpi">
+          <div class="label">links updated</div>
+          <div class="value"><span id="evolve-links">—</span></div>
+          <div class="sub"><span id="evolve-links-total">0</span> link(s) total · step 2</div>
+        </div>
+        <div class="kpi">
+          <div class="label">evolutions committed</div>
+          <div class="value"><span id="evolve-committed">—</span></div>
+          <div class="sub">step 3 · bi-temporal supersedes</div>
+        </div>
+        <div class="kpi">
+          <div class="label">max chain depth</div>
+          <div class="value"><span id="evolve-max-depth">—</span></div>
+          <div class="sub" id="evolve-unique-sub">memories evolved at least once</div>
+        </div>
+        <div class="kpi">
+          <div class="label">structural additions</div>
+          <div class="value"><span id="evolve-additions">—</span></div>
+          <div class="sub"><span id="evolve-tag-adds">0</span> tags · <span id="evolve-kw-adds">0</span> keywords</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="section" style="margin: 0;">
+          <h2>
+            <span class="col-tag">CHAINS</span>
+            recent evolutions
+            <span class="hint">newest first · ≤20</span>
+          </h2>
+          <div id="evolve-chain-list">
+            <div class="empty-msg-soft">no evolutions yet — write some memories</div>
+          </div>
+        </div>
+        <div class="section" style="margin: 0;">
+          <h2>
+            <span class="col-tag">DEPTH</span>
+            chain-depth distribution
+            <span class="hint">per memory · cap = 8</span>
+          </h2>
+          <div id="evolve-depth-list">
+            <div class="empty-msg-soft">no evolved memories yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 2 — procedural compiler (the wedge) -->
+    <div class="section">
+      <h2>
+        <span class="col-tag">PHASE 2</span>
+        procedural compiler
+        <span class="hint">GEPA-style reflect → propose K → shadow-eval → gated commit</span>
+        <span id="proc-state-pill" class="pill off">offline</span>
+        <span id="proc-backend-pill" class="pill demo">backend —</span>
+      </h2>
+      <div class="kpi-row" style="margin-bottom: 14px;">
+        <div class="kpi">
+          <div class="label">outcomes recorded</div>
+          <div class="value"><span id="proc-outcomes">—</span></div>
+          <div class="sub">input to the reflective loop</div>
+        </div>
+        <div class="kpi">
+          <div class="label">proposals</div>
+          <div class="value"><span id="proc-proposals">—</span></div>
+          <div class="sub">candidate revisions emitted</div>
+        </div>
+        <div class="kpi">
+          <div class="label">commits</div>
+          <div class="value"><span id="proc-commits">—</span></div>
+          <div class="sub">cleared the gate · Hard Rule #1</div>
+        </div>
+        <div class="kpi">
+          <div class="label">rejections</div>
+          <div class="value"><span id="proc-rejections">—</span></div>
+          <div class="sub">baseline / canary / safety / Δ trip</div>
+        </div>
+        <div class="kpi">
+          <div class="label">win rate</div>
+          <div class="value"><span id="proc-win-rate">—</span><span class="unit">%</span></div>
+          <div class="sub">commits ÷ proposals</div>
+        </div>
+        <div class="kpi">
+          <div class="label">mean Δ on commit</div>
+          <div class="value"><span id="proc-mean-delta">—</span></div>
+          <div class="sub">objective Δ across committed</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="section" style="margin: 0;">
+          <h2>
+            <span class="col-tag">CHAINS</span>
+            recent commits + rejections
+            <span class="hint">newest first · ≤20</span>
+          </h2>
+          <div id="proc-chain-list">
+            <div class="empty-msg-soft">no procedural activity yet</div>
+          </div>
+        </div>
+        <div class="section" style="margin: 0;">
+          <h2>
+            <span class="col-tag">REJECT</span>
+            top rejection reasons
+            <span class="hint">tally across all rejected proposals</span>
+          </h2>
+          <div id="proc-reasons-list">
+            <div class="empty-msg-soft">no rejections yet</div>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="margin: 14px 0 0;">
+        <h2>
+          <span class="col-tag">CURVE</span>
+          learning curve · benchmark score over versions
+          <span class="hint">Phase-2 "done when": curve climbs, safety stays at 100%</span>
+          <span id="proc-safety-pill" class="pill on">safety 100%</span>
+        </h2>
+        <div class="chart-wrap"><canvas id="proc-curve-chart"></canvas></div>
+      </div>
+      <div class="section" style="margin: 14px 0 0;">
+        <h2>
+          <span class="col-tag">ACTIVE</span>
+          policy artifacts
+          <span class="hint">live versions tracked by the store</span>
+        </h2>
+        <div id="proc-active-list">
+          <div class="empty-msg-soft">no active artifacts</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/chart.umd.min.js"></script>
+  <script>
+    Chart.defaults.color = '#8b949e';
+    Chart.defaults.borderColor = '#30363d';
+    Chart.defaults.font.family = "ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace";
+    Chart.defaults.font.size = 10;
+
+    const COLORS = {
+      mean: '#58a6ff',
+      p95:  '#f0883e',
+      strict_and: '#56d364',
+      fuzzy_and:  '#f0883e',
+      or_merge:   '#d2a8ff',
+      empty:      '#f85149',
+      hybrid: '#58a6ff',
+      bm25:   '#56d364',
+      vector: '#79c0ff',
+    };
+
+    function fmtUptime(ms) {
+      const s = Math.floor(ms / 1000);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const ss = s % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${ss}s`;
+      return `${ss}s`;
+    }
+    function fmtClock(ms) {
+      return new Date(ms).toLocaleTimeString();
+    }
+    function fmtDateTime(ms) {
+      const d = new Date(ms);
+      const today = new Date();
+      const sameDay = d.toDateString() === today.toDateString();
+      return sameDay
+        ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        : d.toLocaleString();
+    }
+    function escapeHtml(s) {
+      return (s ?? '').toString().replace(/[&<>"']/g, c => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+      })[c]);
+    }
+
+    // --- charts ---
+    const latencyChart = new Chart(document.getElementById('latency-chart'), {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'mean ms', data: [], borderColor: COLORS.mean,
+          backgroundColor: 'rgba(88,166,255,0.08)', tension: 0.25, pointRadius: 2, borderWidth: 2, fill: true },
+        { label: 'p95 ms',  data: [], borderColor: COLORS.p95,
+          backgroundColor: 'transparent', tension: 0.25, pointRadius: 2, borderWidth: 1.5,
+          borderDash: [4, 3] },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
+        scales: { y: { beginAtZero: true } } },
+    });
+
+    const tierChart = new Chart(document.getElementById('tier-chart'), {
+      type: 'bar',
+      data: { labels: [], datasets: [
+        { label: 'strict_and', data: [], backgroundColor: COLORS.strict_and, stack: 't' },
+        { label: 'fuzzy_and',  data: [], backgroundColor: COLORS.fuzzy_and,  stack: 't' },
+        { label: 'or_merge',   data: [], backgroundColor: COLORS.or_merge,   stack: 't' },
+        { label: 'empty',      data: [], backgroundColor: COLORS.empty,      stack: 't' },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } },
+    });
+
+    const procCurveChart = new Chart(document.getElementById('proc-curve-chart'), {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'benchmark score', data: [], borderColor: COLORS.mean,
+          backgroundColor: 'rgba(88,166,255,0.10)', tension: 0.2, pointRadius: 3, borderWidth: 2, fill: true, yAxisID: 'y' },
+        { label: 'safety probe pass rate', data: [], borderColor: COLORS.strict_and,
+          backgroundColor: 'transparent', tension: 0.0, pointRadius: 2, borderWidth: 1.5,
+          borderDash: [4, 3], yAxisID: 'y' },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
+        scales: {
+          y: { beginAtZero: true, max: 1.0,
+               ticks: { stepSize: 0.2, callback: v => (v * 100).toFixed(0) + '%' } },
+        },
+      },
+    });
+
+    const hitsChart = new Chart(document.getElementById('hits-chart'), {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'hybrid', data: [], borderColor: COLORS.hybrid, backgroundColor: 'transparent', tension: 0.25, pointRadius: 2, borderWidth: 2 },
+        { label: 'bm25',   data: [], borderColor: COLORS.bm25,   backgroundColor: 'transparent', tension: 0.25, pointRadius: 2, borderWidth: 1.5, borderDash: [3, 3] },
+        { label: 'vector', data: [], borderColor: COLORS.vector, backgroundColor: 'transparent', tension: 0.25, pointRadius: 2, borderWidth: 1.5, borderDash: [3, 3] },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
+        scales: { y: { beginAtZero: true } } },
+    });
+
+    async function refresh() {
+      try {
+        const r = await fetch('/api/metrics/history');
+        if (!r.ok) return;
+        const h = await r.json();
+
+        document.getElementById('uptime').textContent = fmtUptime(h.server_uptime_ms);
+        document.getElementById('server-start').textContent = fmtClock(h.server_start_ms);
+
+        // KPI strip
+        const L = h.lifetime;
+        document.getElementById('kpi-queries').textContent = L.queries.toLocaleString();
+        document.getElementById('kpi-p50').textContent = L.p50_latency_ms ?? 0;
+        document.getElementById('kpi-p95').textContent = L.p95_latency_ms ?? 0;
+        document.getElementById('kpi-mean').textContent = L.mean_latency_ms ? L.mean_latency_ms.toFixed(1) : '0';
+        document.getElementById('kpi-boost').textContent = L.boost_flip_rate_pct ?? 0;
+        document.getElementById('kpi-p50-sub').textContent = `max ${L.max_latency_ms ?? 0}ms · ${L.queries.toLocaleString()} queries`;
+
+        // Charts
+        const labels = h.buckets.map(b => fmtClock(b.start_ms));
+        latencyChart.data.labels = labels;
+        latencyChart.data.datasets[0].data = h.buckets.map(b => +b.mean_latency_ms.toFixed(2));
+        latencyChart.data.datasets[1].data = h.buckets.map(b => b.latency_ms.p95);
+        latencyChart.update();
+
+        tierChart.data.labels = labels;
+        tierChart.data.datasets[0].data = h.buckets.map(b => b.fallback_distribution.strict_and);
+        tierChart.data.datasets[1].data = h.buckets.map(b => b.fallback_distribution.fuzzy_and);
+        tierChart.data.datasets[2].data = h.buckets.map(b => b.fallback_distribution.or_merge);
+        tierChart.data.datasets[3].data = h.buckets.map(b => b.fallback_distribution.empty);
+        tierChart.update();
+
+        hitsChart.data.labels = labels;
+        hitsChart.data.datasets[0].data = h.buckets.map(b => +b.mean_hits.hybrid.toFixed(2));
+        hitsChart.data.datasets[1].data = h.buckets.map(b => +b.mean_hits.bm25.toFixed(2));
+        hitsChart.data.datasets[2].data = h.buckets.map(b => +b.mean_hits.vector.toFixed(2));
+        hitsChart.update();
+
+        // Recent queries table
+        const table = document.getElementById('recent-table');
+        if (!h.recent_queries.length) {
+          table.innerHTML = '<div class="empty-msg">no queries yet — try some in the live view</div>';
+        } else {
+          const rows = h.recent_queries.slice(0, 50).map(q => `
+            <tr>
+              <td class="t">${escapeHtml(fmtDateTime(q.timestamp_ms))}</td>
+              <td class="q">${escapeHtml(q.query_text)}</td>
+              <td><span class="tier-pill ${q.bm25_tier}">${q.bm25_tier.replaceAll('_','-')}</span></td>
+              <td class="t">${q.total_ms}ms</td>
+              <td class="t">${q.hybrid_hits}</td>
+              <td class="t">${q.boost_flipped_top ? '↑' : ''}</td>
+            </tr>`).join('');
+          table.innerHTML = `<table>
+            <thead><tr><th>when</th><th>query</th><th>tier</th><th>latency</th><th>hits</th><th>boost</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+        }
+      } catch (err) {
+        console.warn('history fetch failed', err);
+      }
+    }
+
+    function shortId(s) {
+      if (!s) return '—';
+      return '…' + s.slice(-8);
+    }
+
+    async function refreshEvolve() {
+      try {
+        const r = await fetch('/api/evolve/metrics');
+        if (!r.ok) return;
+        const e = await r.json();
+
+        // State + backend pills.
+        const statePill = document.getElementById('evolve-state-pill');
+        if (e.enabled) {
+          statePill.textContent = 'online';
+          statePill.className = 'pill on';
+        } else {
+          statePill.textContent = 'offline';
+          statePill.className = 'pill off';
+        }
+        const backendPill = document.getElementById('evolve-backend-pill');
+        backendPill.textContent = `backend ${e.backend}`;
+        backendPill.className = `pill ${e.backend === 'ollama' ? 'ollama' : 'demo'}`;
+
+        // KPI strip.
+        const t = e.totals;
+        document.getElementById('evolve-notes').textContent = t.notes_enriched.toLocaleString();
+        document.getElementById('evolve-links').textContent = t.links_updated.toLocaleString();
+        document.getElementById('evolve-links-total').textContent = t.links_total.toLocaleString();
+        document.getElementById('evolve-committed').textContent = t.evolutions_committed.toLocaleString();
+        document.getElementById('evolve-max-depth').textContent = e.max_chain_depth;
+        document.getElementById('evolve-unique-sub').textContent =
+          `${e.unique_memories_evolved.toLocaleString()} memory(ies) evolved at least once`;
+        const adds = t.tag_additions + t.keyword_additions;
+        document.getElementById('evolve-additions').textContent = adds.toLocaleString();
+        document.getElementById('evolve-tag-adds').textContent = t.tag_additions.toLocaleString();
+        document.getElementById('evolve-kw-adds').textContent = t.keyword_additions.toLocaleString();
+
+        // Chain timeline.
+        const chainEl = document.getElementById('evolve-chain-list');
+        if (!e.recent_chain_events.length) {
+          chainEl.innerHTML = '<div class="empty-msg-soft">no evolutions yet — write some memories</div>';
+        } else {
+          chainEl.innerHTML = e.recent_chain_events.map(ce => {
+            const tagChips = (ce.tags_added || []).map(t =>
+              `<span class="chip tag">+tag ${escapeHtml(t)}</span>`).join('');
+            const kwChips = (ce.keywords_added || []).map(k =>
+              `<span class="chip kw">+kw ${escapeHtml(k)}</span>`).join('');
+            const chips = tagChips + kwChips ||
+              '<span class="chip">no structural delta</span>';
+            return `<div class="chain-event">
+              <div>
+                <span class="id-mono">${escapeHtml(shortId(ce.from))}</span>
+                <span class="arrow">→</span>
+                <span class="id-mono">${escapeHtml(shortId(ce.to))}</span>
+              </div>
+              <div class="chip-row">${chips}</div>
+              <div class="chain-event-meta">
+                <span>${escapeHtml(fmtDateTime(ce.timestamp_ms))}</span>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        // Chain-depth bar list. Cap at 8 (max_lifetime_evolutions default).
+        const depthEl = document.getElementById('evolve-depth-list');
+        const ws = e.worker_state || [];
+        if (!ws.length) {
+          depthEl.innerHTML = '<div class="empty-msg-soft">no evolved memories yet</div>';
+        } else {
+          // Show up to 12 deepest chains first.
+          const top = ws.slice().sort((a, b) => b.chain_depth - a.chain_depth).slice(0, 12);
+          const cap = 8;
+          depthEl.innerHTML = top.map(s => {
+            const pct = Math.min(100, (s.chain_depth / cap) * 100);
+            return `<div class="depth-bar-row">
+              <span class="id">${escapeHtml(shortId(s.memory_id))}</span>
+              <div class="depth-bar"><div style="width:${pct}%"></div></div>
+              <span class="count">${s.chain_depth}/${cap}</span>
+            </div>`;
+          }).join('');
+        }
+      } catch (err) {
+        console.warn('evolve metrics fetch failed', err);
+      }
+    }
+
+    async function refreshProcedural() {
+      try {
+        const r = await fetch('/api/procedural/metrics');
+        if (!r.ok) return;
+        const p = await r.json();
+
+        // State + backend pills.
+        const statePill = document.getElementById('proc-state-pill');
+        if (p.enabled) {
+          statePill.textContent = 'online';
+          statePill.className = 'pill on';
+        } else {
+          statePill.textContent = 'offline (set MNEME_PROCEDURAL=on)';
+          statePill.className = 'pill off';
+        }
+        const backendPill = document.getElementById('proc-backend-pill');
+        backendPill.textContent = `backend ${p.backend}`;
+        backendPill.className = `pill ${p.backend === 'ollama' ? 'ollama' : 'demo'}`;
+
+        // KPI strip.
+        const t = p.totals;
+        document.getElementById('proc-outcomes').textContent = t.outcomes_recorded.toLocaleString();
+        document.getElementById('proc-proposals').textContent = t.proposals.toLocaleString();
+        document.getElementById('proc-commits').textContent = t.commits.toLocaleString();
+        document.getElementById('proc-rejections').textContent = t.rejections.toLocaleString();
+        document.getElementById('proc-win-rate').textContent = p.win_rate_pct.toFixed(1);
+        const sign = p.mean_objective_delta >= 0 ? '+' : '';
+        document.getElementById('proc-mean-delta').textContent =
+          `${sign}${p.mean_objective_delta.toFixed(3)}`;
+
+        // Chain timeline.
+        const chainEl = document.getElementById('proc-chain-list');
+        if (!p.recent_chain_events.length) {
+          chainEl.innerHTML = '<div class="empty-msg-soft">no procedural activity yet</div>';
+        } else {
+          chainEl.innerHTML = p.recent_chain_events.map(ev => {
+            const klass = ev.kind === 'commit' ? 'on' : 'off';
+            const label = ev.kind === 'commit' ? 'COMMIT' : 'REJECT';
+            const deltaSign = ev.objective_delta >= 0 ? '+' : '';
+            const chips = ev.kind === 'commit'
+              ? `<span class="chip kw">Δ ${deltaSign}${ev.objective_delta.toFixed(3)}</span>
+                 <span class="chip">canary ${ev.canaries_passed}/${ev.canaries_total}</span>
+                 <span class="chip">judges ${ev.judges_consulted}</span>`
+              : `<span class="chip tag">${escapeHtml(ev.reason || 'unspecified')}</span>`;
+            return `<div class="chain-event">
+              <div>
+                <span class="pill ${klass}">${label}</span>
+                <span class="id-mono">artifact …${escapeHtml(ev.artifact_id.slice(-8))}</span>
+                <span class="arrow">·</span>
+                <span class="id-mono">proposal …${escapeHtml(ev.proposal_id.slice(-8))}</span>
+              </div>
+              <div class="chip-row">${chips}</div>
+              <div class="chain-event-meta">
+                <span>${escapeHtml(fmtDateTime(ev.timestamp_ms))}</span>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        // Top rejection reasons.
+        const reasonsEl = document.getElementById('proc-reasons-list');
+        if (!p.top_rejection_reasons.length) {
+          reasonsEl.innerHTML = '<div class="empty-msg-soft">no rejections yet</div>';
+        } else {
+          const max = Math.max(...p.top_rejection_reasons.map(([_, c]) => c));
+          reasonsEl.innerHTML = p.top_rejection_reasons.map(([name, count]) => {
+            const pct = Math.min(100, (count / max) * 100);
+            return `<div class="depth-bar-row">
+              <span class="id">${escapeHtml(name)}</span>
+              <div class="depth-bar"><div style="width:${pct}%"></div></div>
+              <span class="count">${count}</span>
+            </div>`;
+          }).join('');
+        }
+
+        // Learning curve chart + safety pill.
+        const safetyPill = document.getElementById('proc-safety-pill');
+        if (p.safety_clean) {
+          safetyPill.textContent = 'safety 100%';
+          safetyPill.className = 'pill on';
+        } else {
+          safetyPill.textContent = 'SAFETY REGRESSION';
+          safetyPill.className = 'pill off';
+        }
+        const curve = p.curve_points || [];
+        procCurveChart.data.labels = curve.map(pt => `v${pt.version}`);
+        procCurveChart.data.datasets[0].data = curve.map(pt => +pt.benchmark_score.toFixed(3));
+        procCurveChart.data.datasets[1].data = curve.map(pt => +pt.safety_probe_pass_rate.toFixed(3));
+        procCurveChart.update();
+
+        // Active artifacts table.
+        const activeEl = document.getElementById('proc-active-list');
+        if (!p.active_artifacts.length) {
+          activeEl.innerHTML = '<div class="empty-msg-soft">no active artifacts</div>';
+        } else {
+          const rows = p.active_artifacts.map(a => `
+            <tr>
+              <td class="t">…${escapeHtml(a.artifact_id.slice(-8))}</td>
+              <td class="t">${a.version}</td>
+              <td class="q">${escapeHtml(a.kind)}</td>
+              <td class="t">${escapeHtml(a.scope_tenant)}</td>
+              <td class="t">${a.canary_count}</td>
+            </tr>`).join('');
+          activeEl.innerHTML = `<table>
+            <thead><tr><th>id</th><th>v</th><th>kind</th><th>tenant</th><th>canaries</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+        }
+      } catch (err) {
+        console.warn('procedural metrics fetch failed', err);
+      }
+    }
+
+    refresh();
+    refreshEvolve();
+    refreshProcedural();
+    setInterval(refresh, 3000);
+    setInterval(refreshEvolve, 3000);
+    setInterval(refreshProcedural, 3000);
+  </script>
+</body>
+</html>

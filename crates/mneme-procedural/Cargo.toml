@@ -12,3 +12,13 @@ serde.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
+
+[dev-dependencies]
+# Round-trip tests for `Verdict` + `Proposal` (in-memory only — the
+# on-wire format goes through bincode via mneme-store, but JSON
+# round-trips check the serde shape cheaply).
+serde_json.workspace = true
+# `FakeLlmClient` drives Slice B's reflective-loop unit + integration
+# tests without an external LLM dependency. Default-features off so the
+# `ollama` feature's reqwest tree doesn't leak into the test build.
+mneme-llm = { workspace = true, default-features = false }

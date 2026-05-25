@@ -4,13 +4,14 @@ members = [
     "crates/mneme-core",
     "crates/mneme-store",
     "crates/mneme-index",
+    "crates/mneme-llm",
     "crates/mneme-evolve",
     "crates/mneme-procedural",
     "crates/mneme-server",
 ]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/YOURNAME/mneme"
@@ -21,6 +22,7 @@ rust-version = "1.79"
 mneme-core = { path = "crates/mneme-core" }
 mneme-store = { path = "crates/mneme-store" }
 mneme-index = { path = "crates/mneme-index" }
+mneme-llm = { path = "crates/mneme-llm", default-features = false }
 mneme-evolve = { path = "crates/mneme-evolve" }
 mneme-procedural = { path = "crates/mneme-procedural" }
 
@@ -42,6 +44,16 @@ fjall = "2"
 tantivy = "0.22"
 hnsw_rs = "0.3"
 simsimd = "6"
+fastembed = "5"
+
+# --- viz / server (mneme-server only) ---
+axum = "0.7"
+tower-http = { version = "0.5", features = ["trace"] }
+
+# --- HTTP client (mneme-llm 'ollama' feature only) ---
+# `rustls-tls` keeps us off OpenSSL / native cert store, which makes the
+# crate trivially buildable on every platform CI runs on.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [profile.release]
 lto = "thin"

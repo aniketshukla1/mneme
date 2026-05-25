@@ -14,12 +14,14 @@
 
 pub mod entity;
 pub mod event;
+pub mod synthesizer;
 pub mod traits;
 pub mod types;
 
-pub use entity::{ArtifactKind, Canary, Memory, Outcome, PolicyArtifact, Provenance};
+pub use entity::{ArtifactKind, Canary, Memory, Outcome, PolicyArtifact, Provenance, Source};
 pub use event::{ChangeSet, EvalReport, Event, LogEntry};
+pub use synthesizer::{Answer, Excerpt, ExcerptSegment, Passage, SynthesisProvenance, Synthesizer};
 pub use traits::{
     Embedder, EventLog, Hit, LlmClient, MaterializedView, MnemeError, Query, Retriever,
 };
-pub use types::{new_id, BiTemporal, Id, Scope};
+pub use types::{new_id, BiTemporal, Id, Scope, SourceRef};

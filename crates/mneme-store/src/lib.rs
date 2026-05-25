@@ -34,8 +34,7 @@ impl EventLog for FjallEventLog {
     async fn append(&self, event: Event) -> Result<Id, MnemeError> {
         let id = mneme_core::new_id();
         let entry = LogEntry { id, event };
-        let bytes = bincode::serialize(&entry)
-            .map_err(|e| MnemeError::Storage(e.to_string()))?;
+        let bytes = bincode::serialize(&entry).map_err(|e| MnemeError::Storage(e.to_string()))?;
         // ULID -> 16 big-endian bytes keeps key order == time order.
         self.events
             .insert(id.to_bytes(), bytes)
@@ -93,6 +92,8 @@ mod tests {
             evolution_count: 0,
             time: mneme_core::BiTemporal::now(),
             provenance: Provenance::default(),
+            source: None,
+            position: None,
         }
     }
 
@@ -101,8 +102,14 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("mneme-test-{}", mneme_core::new_id()));
         let log = FjallEventLog::open(&dir).unwrap();
 
-        let a = log.append(Event::MemoryWritten(sample_memory())).await.unwrap();
-        let _b = log.append(Event::MemoryWritten(sample_memory())).await.unwrap();
+        let a = log
+            .append(Event::MemoryWritten(sample_memory()))
+            .await
+            .unwrap();
+        let _b = log
+            .append(Event::MemoryWritten(sample_memory()))
+            .await
+            .unwrap();
 
         let all = log.read_from(None).await.unwrap();
         assert_eq!(all.len(), 2);

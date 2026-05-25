@@ -7,6 +7,11 @@ use std::collections::HashMap;
 
 /// A unit of knowledge. An A-MEM-style note extended with a bi-temporal
 /// stamp and an evolution lineage pointer.
+///
+/// When a longer document is ingested it's chunked into many `Memory`s that
+/// share a [`SourceRef`] and carry a zero-based [`Memory::position`] within
+/// their source. Standalone memories (not chunked from a document) leave
+/// both fields `None`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Memory {
     pub id: Id,
@@ -24,6 +29,32 @@ pub struct Memory {
     pub evolution_count: u16,
     pub time: BiTemporal,
     pub provenance: Provenance,
+    /// Source document this memory was chunked from (if any). Appended at
+    /// the end of the struct so bincode-serialised pre-source logs still
+    /// decode cleanly with `#[serde(default)]`.
+    #[serde(default)]
+    pub source: Option<SourceRef>,
+    /// Zero-based position within the parent source. `None` when `source`
+    /// is also `None`.
+    #[serde(default)]
+    pub position: Option<u32>,
+}
+
+/// A document a [`Memory`] was chunked from. Source identity persists even
+/// when individual chunks evolve or get invalidated — a fact correction in
+/// chunk 3 doesn't reopen the source.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Source {
+    pub id: Id,
+    pub scope: Scope,
+    pub title: String,
+    /// Optional pointer to the original document (URL, file path, etc.).
+    pub uri: Option<String>,
+    /// Number of chunks the ingest emitted. Doesn't update on invalidation;
+    /// "how many are still live" is derived from the chunks themselves.
+    pub chunk_count: u32,
+    pub time: BiTemporal,
+    pub provenance: Provenance,
 }
 
 /// Where a memory came from — drives the trust scoring that protects the
@@ -37,7 +68,10 @@ pub struct Provenance {
 
 impl Default for Provenance {
     fn default() -> Self {
-        Self { source: "unknown".into(), trust: 0.5 }
+        Self {
+            source: "unknown".into(),
+            trust: 0.5,
+        }
     }
 }
 
@@ -79,8 +113,13 @@ pub struct PolicyArtifact {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ArtifactKind {
-    SystemPrompt { body: String },
-    Heuristic { when: String, then: String },
+    SystemPrompt {
+        body: String,
+    },
+    Heuristic {
+        when: String,
+        then: String,
+    },
     Skill {
         signature: String,
         body: String,
@@ -88,8 +127,14 @@ pub enum ArtifactKind {
         preconditions: Vec<String>,
         postconditions: Vec<String>,
     },
-    RetrievalRule { query_pattern: String, rewrite: String },
-    Reflection { episode: EpisodeRef, lesson: String },
+    RetrievalRule {
+        query_pattern: String,
+        rewrite: String,
+    },
+    Reflection {
+        episode: EpisodeRef,
+        lesson: String,
+    },
 }
 
 /// A single regression check carried by an artifact.

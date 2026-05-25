@@ -2,7 +2,6 @@
 //! built around — each materialized view, the LLM client, and the embedder
 //! are all swappable behind a trait (report §7, "abstract behind a trait").
 
-use crate::entity::*;
 use crate::event::LogEntry;
 use crate::types::*;
 use async_trait::async_trait;
@@ -56,9 +55,17 @@ pub trait LlmClient: Send + Sync {
 }
 
 /// Embedding seam — fastembed today, swappable later (report §7 caveat).
+///
+/// Every implementation must expose a stable [`Embedder::model_id`]. The event
+/// log records this id alongside the embedding so a view rebuild can detect a
+/// mismatched embedder at startup and refuse to silently mix vector spaces
+/// (long-form project description §4.5).
 #[async_trait]
 pub trait Embedder: Send + Sync {
     fn dim(&self) -> usize;
+    /// Stable identifier for the (model, dimension) pair. Two embedders that
+    /// produce comparable vector spaces must return the same `model_id`.
+    fn model_id(&self) -> &str;
     async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, MnemeError>;
 }
 

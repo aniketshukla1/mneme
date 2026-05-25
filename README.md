@@ -4,92 +4,169 @@
 
   <p>
     <a href="https://github.com/aniketshukla1/mneme/actions"><img alt="Build Status" src="https://img.shields.io/badge/build-passing-brightgreen"></a>
-    <a href="https://crates.io/crates/mneme"><img alt="Crates.io" src="https://img.shields.io/badge/crates.io-v0.0.1-blue"></a>
+    <a href="https://crates.io/crates/mneme"><img alt="Version" src="https://img.shields.io/badge/version-v0.1.0-blue"></a>
     <a href="https://github.com/aniketshukla1/mneme/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+    <a href="#"><img alt="Tests" src="https://img.shields.io/badge/tests-218%20passing-brightgreen"></a>
   </p>
 </div>
 
 ---
 
-Most agent memory systems (like Mem0, Zep, Letta, or Cognee) are *storage-shaped*: they remember facts. **mneme's differentiator is procedural self-improvement** — the agent gets *better at doing things* over time. 
+Most agent memory systems (Mem0, Zep, Letta, Cognee) are **storage-shaped**: they remember facts. mneme's differentiator is **procedural self-improvement** — the agent gets *better at doing things* over time, with a regression guard the literature omits.
 
-Mneme achieves this through two continuous loops operating over a single, append-only event log:
+Two continuous loops operate over a single append-only event log:
 
-1. **Procedural-Memory Compiler** — Turns batches of agent outcomes into improved, versioned policy artifacts (system prompts, heuristics, skills, retrieval rules). This uses a GEPA-style reflective loop (reflect → propose candidates → shadow-evaluate → Pareto-select → gated commit).
-2. **Memory Evolution** — When a new memory is written, a bounded async worker retroactively re-tags and re-links related past memories, ensuring the knowledge graph stays adaptive and contextually rich.
+1. **Procedural-memory compiler** (the wedge) — turns batches of agent `Outcome`s into improved, versioned `PolicyArtifact`s (system prompts, heuristics, retrieval rules) via a GEPA-style reflective loop: reflect → propose K candidates → shadow-evaluate → Pareto-select → **gated commit**.
+2. **Memory evolution** (supporting) — when a memory is written, a bounded async worker retroactively re-tags and re-links related memories (A-MEM style), keeping the knowledge graph the compiler learns from adaptive.
 
-> **Status:** Early Scaffold (Phase 0). The core event log is in place. Vector and BM25 view materialization are up next.
+### Why the wedge matters
+
+> **Hard Rule #1: Nothing procedural commits without passing `EvalReport::is_committable()`** — canaries 100%, safety probe passing, objective Δ ≥ 0. This is the regression guard LangMem omits. Mechanically enforced — setting every configurable gate threshold to its weakest value *still* cannot bypass the baseline. Held by a dedicated integration test on every commit.
 
 ---
 
-## ⚡ Quick Start
-
-Ensure you have [Rust and Cargo](https://rustup.rs/) installed.
+## ⚡ Quick start
 
 ```bash
-# Clone the repository
 git clone https://github.com/aniketshukla1/mneme.git
 cd mneme
 
-# Boot the event log server (prints status)
-cargo run -p mneme-server
+# Run the workspace tests (218 passing)
+cargo test --workspace
 
-# Run the event-log round-trip tests
-cargo test
+# Boot the demo: live retrieval + memory evolution + procedural compiler
+MNEME_DEMO=1 MNEME_PROCEDURAL=on cargo run -p mneme-server
 ```
+
+Then open:
+- **http://127.0.0.1:7777/** — live chat-style retrieval (hybrid vector + BM25 + extractive synthesis)
+- **http://127.0.0.1:7777/dashboard** — real-time benchmarks: latency, BM25 tier distribution, memory evolution chains, **procedural learning curve**
+
+In the demo, watch the **PROCEDURAL** section's learning curve climb from ~33% to 100% while the safety probe line stays glued at 100% — that's the Phase 2 "done when" criterion satisfied live.
+
+### Configuration
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `MNEME_DEMO` | `0` | `1` → use a temp data dir + synthetic writer (no persistence) |
+| `MNEME_EMBEDDER` | `fastembed` | `mock` for a 32-dim deterministic embedder (no model download) |
+| `MNEME_EVOLVE` | `on` | `off` to disable the memory-evolution worker |
+| `MNEME_PROCEDURAL` | `off` | `on` to enable the procedural compiler (LLM-heavy) |
+| `MNEME_EVOLVE_LLM` | `demo` | `ollama` for a real local model via `MNEME_OLLAMA_URL` / `MNEME_OLLAMA_MODEL` |
+| `MNEME_DATA` | `./mneme-data` | Path to the fjall keyspace |
+| `MNEME_PORT` | `7777` | HTTP listen port |
 
 ---
 
-## 🏗️ Workspace Architecture
+## 🏗️ Workspace architecture
 
-Mneme is divided into several crates, keeping the core logic isolated from I/O and specific implementations.
+Six crates, each with a focused responsibility. External dependencies sit behind traits (`LlmClient`, `Embedder`, `EventLog`, `MaterializedView`, `Retriever`, `Synthesizer`, `PolicyExecutor`, `Judge`) so providers are swappable.
 
-| Crate | Role | Phase |
+| Crate | Role | Status |
 |---|---|---|
-| `mneme-core` | Core types and traits (No I/O) | — |
-| `mneme-store` | **fjall**-backed append-only event log | 0 |
-| `mneme-index` | **hnsw** + **tantivy** for vector & text retrieval | 0 |
-| `mneme-evolve` | A-MEM-style retroactive memory evolution | 1 |
-| `mneme-procedural` | The procedural policy compiler | 2 |
-| `mneme-server` | Host process / MCP (Model Context Protocol) | 5 |
+| `mneme-core` | Types + traits + event log shape. No I/O. | ✅ |
+| `mneme-store` | `fjall`-backed append-only event log | ✅ Phase 0 |
+| `mneme-index` | `hnsw_rs` vector + `tantivy` BM25 + RRF hybrid + extractive synthesis | ✅ Phase 0 |
+| `mneme-llm` | `LlmClient` implementations: `FakeLlmClient`, `OllamaLlmClient` (feature-gated) | ✅ |
+| `mneme-evolve` | Bounded A-MEM-style memory evolution worker | ✅ Phase 1 |
+| `mneme-procedural` | GEPA-style procedural compiler + gate + eval suite + learning curve | ✅ Phase 2 |
+| `mneme-server` | Host process: HTTP API, dashboard, demo wiring | ✅ |
 
-### Core Design Tenets
-* **Single System of Record:** The append-only event log is the absolute source of truth. Every index (vector, BM25, graph) is a materialized view that can be fully rebuilt by replaying events.
-* **Fast Write Path:** Writes are fast (<5ms target). Embedding, evolution, and extraction are handled asynchronously behind bounded queues.
-* **Immutable History:** We never overwrite history. Fact updates and memory evolutions invalidate past states by creating new bi-temporal versions.
+---
+
+## 🔒 Hard rules (non-negotiable invariants)
+
+These are enforced in code, not by convention. Each has a dedicated test that fails if the invariant breaks:
+
+1. **Nothing procedural commits without passing `EvalReport::is_committable()`** — canaries + safety probe + non-negative objective delta. The configurable `EvalGates` layer can only add rejection reasons on top of this baseline; it can never relax it. Test: `loosening_configurable_gates_cannot_bypass_strict_baseline`.
+2. **Never overwrite history** — memory evolution invalidates the old version and writes a new bi-temporal version with a `parent` pointer. Same for any fact update. The event log is append-only.
+3. **Scope is a security boundary** — procedural learning + memory evolution never cross a `Scope` without explicit aggregation. Every cross-entity read goes through `Scope::contains`.
+4. **The event log is the single system of record** — every index (vector, BM25, graph, procedural) is a materialized view, fully reconstructible by replaying events. Tested end-to-end.
+5. **The write path stays fast** — embedding, evolution, and procedural compilation are async behind bounded queues. The write path target is < 5 ms; LLM calls never block it.
+6. **Cascades are bounded** — `EvolveConfig` caps cascade fan-out, per-memory cooldown, lifetime evolution count, and minimum structural delta. A-MEM has no convergence guarantee; these bounds replace it.
+
+---
+
+## 📊 Phase 2 "done when" — verified
+
+> CLAUDE.md: *"Phase 2 done when: positive learning curve on an ALFWorld-style suite with no safety-probe regression."*
+
+Live demo output (`MNEME_PROCEDURAL=on`):
+
+```
+v1:  benchmark=33.33% safety=100%
+v2:  benchmark=66.67% safety=100%
+v3:  benchmark=100.00% safety=100%
+v4+: benchmark=100.00% safety=100%  (plateau — both improvement signals integrated)
+```
+
+The dashboard renders this as a dual-line chart with a `safety 100%` pill that flips red on any regression.
+
+---
+
+## 🗺️ Roadmap
+
+- **Phase 0** ✅ Foundation — event log, hybrid retrieval, dashboard
+- **Phase 1** ✅ Memory evolution — bounded A-MEM-style worker
+- **Phase 2** ✅ Procedural compiler — the wedge, with mechanically-enforced commit gate
+- **Phase 3** ⏭ Custom filtered HNSW (ACORN-style, soft-delete)
+- **Phase 4** ⏭ Bi-temporal property graph store on fjall
+- **Phase 5** ⏭ `pyo3` bindings + MCP (Model Context Protocol) server
+- **Phase 6** ⏭ Eval harness as a first-class product (the real moat)
+
+---
+
+## 🧪 Test counts
+
+```
+mneme-core        :   3 tests
+mneme-llm         :  27 tests
+mneme-index       :  57 tests
+mneme-evolve      :  11 tests
+mneme-procedural  :  94 unit + 5 integration tests
+mneme-server      :  20 tests
+mneme-store       :   1 test
+──────────────────────────────
+TOTAL             : 218 tests · all passing on both default and --no-default-features
+```
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! Whether you're fixing bugs, improving documentation, or proposing new features, your help is appreciated. 
+Contributions welcome. A few specific patterns the project enforces:
 
-### How to Contribute
+- **The gate is sacred.** Any change to `mneme-procedural::gate` requires a corresponding test demonstrating that the property still holds. Loosening default thresholds requires a code review comment explaining the trade-off.
+- **External dependencies behind traits.** New backends (LLMs, embedders, judges, executors) go behind the existing trait surface; concrete implementations live in their own crate.
+- **`cargo fmt` + `cargo clippy -- -D warnings` must pass** on both `--no-default-features` and the default config before any commit.
+- **Tests live next to code** in `#[cfg(test)] mod tests`. Storage tests use a temp dir keyed by a fresh ULID and clean up after themselves.
+- **Conventional commits** — `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
 
-1. **Fork the Repository**: Start by forking the project to your own GitHub account.
-2. **Create a Branch**: Create a feature branch from `main` (`git checkout -b feature/your-feature-name`).
-3. **Make your Changes**: Write your code! Make sure to follow the coding guidelines below.
-4. **Test Thoroughly**: Run `cargo test` to ensure your changes don't break existing functionality. Add new tests for any new features.
-5. **Commit & Push**: Commit your changes with descriptive commit messages, then push your branch to your fork.
-6. **Open a Pull Request**: Submit a PR against the `main` branch of the `mneme` repository. Include a clear description of the problem you're solving or the feature you're adding.
+See `CLAUDE.md` for the full project guide.
 
-### Coding Guidelines
+---
 
-* **Strict Safety & Commits:** Nothing procedural should commit without passing evaluation (`EvalReport::is_committable()`). This is a hard guard against regression.
-* **Dependencies:** Keep external dependencies behind traits (`LlmClient`, `Embedder`, `EventLog`, `Retriever`) so providers remain swappable.
-* **Formatting:** All code must be formatted with `cargo fmt`.
-* **Linting:** Ensure your code passes all `cargo clippy` checks without warnings.
-* **Documentation:** Document new traits, structs, and complex functions. 
+## 📚 Background
 
-### Reporting Issues
+Two design documents back this project:
+1. A comparative survey of agent memory systems (Mem0, Zep, Letta, A-MEM, etc.) and where each falls short.
+2. The Rust-native self-improving memory architecture + phased build plan.
 
-If you find a bug or have a feature request, please open an issue! Provide as much context as possible:
-* Steps to reproduce the bug.
-* Expected vs. actual behavior.
-* Environment details (OS, Rust version, etc.).
+Section numbers in code comments (e.g. "report §3") refer to document 2.
+
+References embedded in the code:
+- A-MEM: Lyu et al., *Agentic Memory for LLM Agents*, arXiv:2502.12110 (memory evolution model)
+- GEPA: Du et al., *General Evolutionary Prompt Adaptation*, arXiv:2507.19457 (reflective-loop pattern)
+- ACORN: Wu et al., *ACORN: Performant Hybrid Search* (filtered HNSW, Phase 3 target)
+
+---
+
+## ⚠️ Stability
+
+This is `0.1.0` — the first usable release. The system is end-to-end working with 218 passing tests, but the public API surface will change as Phases 3–6 land. Pin a specific version in your `Cargo.toml`; expect breaking changes between `0.x.y` bumps.
 
 ---
 
 ## 📜 License
 
-This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+Apache License 2.0. See [LICENSE](LICENSE).
