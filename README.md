@@ -89,7 +89,7 @@ These are enforced in code, not by convention. Each has a dedicated test that fa
 
 ## 📊 Phase 2 "done when" — verified
 
-> CLAUDE.md: *"Phase 2 done when: positive learning curve on an ALFWorld-style suite with no safety-probe regression."*
+> Phase 2 is "done when" the system demonstrates a *positive learning curve on an ALFWorld-style suite with no safety-probe regression*.
 
 Live demo output (`MNEME_PROCEDURAL=on`):
 
@@ -141,8 +141,6 @@ Contributions welcome. A few specific patterns the project enforces:
 - **`cargo fmt` + `cargo clippy -- -D warnings` must pass** on both `--no-default-features` and the default config before any commit.
 - **Tests live next to code** in `#[cfg(test)] mod tests`. Storage tests use a temp dir keyed by a fresh ULID and clean up after themselves.
 - **Conventional commits** — `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
-
-See `CLAUDE.md` for the full project guide.
 
 ---
 
