@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs on the same branch when a new push lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # `-D warnings` is applied per-step via `cargo clippy -- -D warnings`
+  # rather than globally so a deprecation warning from an upstream
+  # dependency we don't control can't unilaterally break CI.
+
+jobs:
+  fmt:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: cargo clippy (${{ matrix.config.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # Two configs because the `ollama` feature gates the reqwest
+          # tree and the procedural compiler — we want both green so
+          # CI / lean builds and full builds stay healthy.
+          - { name: "default features",   flags: "" }
+          - { name: "--no-default-features", flags: "--no-default-features" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Cache key includes the feature flag set so the two matrix
+          # legs don't fight over the same cache.
+          key: clippy-${{ matrix.config.name }}
+      - run: cargo clippy --workspace --all-targets ${{ matrix.config.flags }} -- -D warnings
+
+  test:
+    name: cargo test (${{ matrix.config.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: "default features",   flags: "" }
+          - { name: "--no-default-features", flags: "--no-default-features" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: test-${{ matrix.config.name }}
+      # Tests use MockEmbedder by default so FastEmbed's first-run model
+      # download is never triggered in CI. If a future test needs the
+      # real embedder, gate it with `#[ignore]` so this matrix stays fast.
+      - run: cargo test --workspace ${{ matrix.config.flags }}
